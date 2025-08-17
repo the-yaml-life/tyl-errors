@@ -102,10 +102,10 @@ mod retry;
 mod settings;
 
 // Re-export main types and traits
-pub use error::{TylError, TylResult};
-pub use category::{ErrorCategory, ErrorClassifier, BuiltinCategory};
+pub use category::{BuiltinCategory, ErrorCategory, ErrorClassifier};
 pub use context::ErrorContext;
-pub use retry::{RetryableError, RetryPolicy, RetryResult};
+pub use error::{TylError, TylResult};
+pub use retry::{RetryPolicy, RetryResult, RetryableError};
 pub use settings::{ErrorSettings, LogLevel};
 
 #[cfg(test)]
@@ -354,4 +354,3 @@ mod tests {
         assert_eq!(category.category_name(), "BusinessLogic");
     }
 }
-

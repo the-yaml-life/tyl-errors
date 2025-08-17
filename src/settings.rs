@@ -121,20 +121,16 @@ impl ErrorSettings {
         }
     }
 
-    /// Create ErrorSettings with default values.
-    pub fn default() -> Self {
+}
+
+impl Default for ErrorSettings {
+    fn default() -> Self {
         Self {
             backtrace_enabled: false,
             max_retries: 3,
             log_errors: true,
             log_level: LogLevel::Info,
         }
-    }
-}
-
-impl Default for ErrorSettings {
-    fn default() -> Self {
-        Self::default()
     }
 }
 
