@@ -71,7 +71,7 @@ mod tests {
         let db_error = TylError::database("Connection failed");
         let validation_error = TylError::validation("email", "Invalid format");
         let not_found_error = TylError::not_found("user", "123");
-        
+
         // Then: errors should match expected types
         assert!(matches!(db_error, TylError::Database { .. }));
         assert!(matches!(validation_error, TylError::Validation { .. }));
@@ -83,7 +83,7 @@ mod tests {
         // Given: a validation error with field and message
         // When: converting to string
         let error = TylError::validation("email", "Must be valid email address");
-        
+
         // Then: should format as expected
         assert_eq!(
             error.to_string(),
@@ -102,8 +102,14 @@ mod tests {
         // Then: data should be preserved
         match (error, deserialized) {
             (
-                TylError::NotFound { resource: r1, id: i1 },
-                TylError::NotFound { resource: r2, id: i2 },
+                TylError::NotFound {
+                    resource: r1,
+                    id: i1,
+                },
+                TylError::NotFound {
+                    resource: r2,
+                    id: i2,
+                },
             ) => {
                 assert_eq!(r1, r2);
                 assert_eq!(i1, i2);
@@ -117,10 +123,26 @@ mod tests {
         // Given: different error types
         // When: getting their categories
         // Then: should match expected categories
-        assert_eq!(TylError::database("test").category().category_name(), "Transient");
-        assert_eq!(TylError::network("test").category().category_name(), "Network");
-        assert_eq!(TylError::validation("field", "test").category().category_name(), "Validation");
-        assert_eq!(TylError::not_found("resource", "id").category().category_name(), "Permanent");
+        assert_eq!(
+            TylError::database("test").category().category_name(),
+            "Transient"
+        );
+        assert_eq!(
+            TylError::network("test").category().category_name(),
+            "Network"
+        );
+        assert_eq!(
+            TylError::validation("field", "test")
+                .category()
+                .category_name(),
+            "Validation"
+        );
+        assert_eq!(
+            TylError::not_found("resource", "id")
+                .category()
+                .category_name(),
+            "Permanent"
+        );
     }
 
     #[test]
@@ -147,7 +169,7 @@ mod tests {
         // Then: should use exponential backoff
         assert!(delay2 > delay1);
         assert!(delay3 > delay2);
-        
+
         // And: should cap at reasonable maximum
         let delay_high = network.retry_delay(20);
         assert!(delay_high.as_secs() <= 60 * 500 / 1000);
@@ -181,7 +203,10 @@ mod tests {
 
         // Then: metadata should be added correctly
         assert_eq!(context.metadata.len(), 2);
-        assert_eq!(context.metadata["endpoint"], serde_json::json!("/api/users"));
+        assert_eq!(
+            context.metadata["endpoint"],
+            serde_json::json!("/api/users")
+        );
         assert_eq!(context.metadata["timeout_ms"], serde_json::json!(5000));
     }
 
@@ -197,7 +222,7 @@ mod tests {
         // When: incrementing attempts
         assert_eq!(context.attempt_count, 1);
         context.increment_attempt();
-        
+
         // Then: count should increment
         assert_eq!(context.attempt_count, 2);
     }
@@ -206,16 +231,20 @@ mod tests {
     fn test_custom_error_category_should_be_extensible() {
         // Given: a custom domain-specific error category
         use std::time::Duration;
-        
+
         #[derive(Debug, Clone)]
         struct PaymentProcessingError;
-        
+
         impl ErrorClassifier for PaymentProcessingError {
-            fn is_retriable(&self) -> bool { true }
+            fn is_retriable(&self) -> bool {
+                true
+            }
             fn retry_delay(&self, attempt: usize) -> Duration {
                 Duration::from_secs(attempt as u64 * 2) // Custom backoff
             }
-            fn category_name(&self) -> &'static str { "PaymentProcessing" }
+            fn category_name(&self) -> &'static str {
+                "PaymentProcessing"
+            }
             fn clone_box(&self) -> Box<dyn ErrorClassifier> {
                 Box::new(self.clone())
             }
@@ -223,7 +252,7 @@ mod tests {
 
         // When: creating custom category
         let custom_category = ErrorCategory::Custom(Box::new(PaymentProcessingError));
-        
+
         // Then: should behave according to custom logic
         assert!(custom_category.is_retriable());
         assert_eq!(custom_category.retry_delay(1), Duration::from_secs(2));
@@ -236,7 +265,7 @@ mod tests {
         // Given: builtin categories
         let network = ErrorCategory::Builtin(BuiltinCategory::Network);
         let validation = ErrorCategory::Builtin(BuiltinCategory::Validation);
-        
+
         // When/Then: should maintain existing behavior
         assert!(network.is_retriable());
         assert!(!validation.is_retriable());
@@ -249,21 +278,28 @@ mod tests {
         // Given: TylError that can return custom categories
         #[derive(Debug, Clone)]
         struct BusinessLogicError;
-        
+
         impl ErrorClassifier for BusinessLogicError {
-            fn is_retriable(&self) -> bool { false }
-            fn retry_delay(&self, _attempt: usize) -> Duration { Duration::from_millis(0) }
-            fn category_name(&self) -> &'static str { "BusinessLogic" }
+            fn is_retriable(&self) -> bool {
+                false
+            }
+            fn retry_delay(&self, _attempt: usize) -> Duration {
+                Duration::from_millis(0)
+            }
+            fn category_name(&self) -> &'static str {
+                "BusinessLogic"
+            }
             fn clone_box(&self) -> Box<dyn ErrorClassifier> {
                 Box::new(self.clone())
             }
         }
 
-        let error = TylError::business_logic("Invalid state transition", Box::new(BusinessLogicError));
-        
+        let error =
+            TylError::business_logic("Invalid state transition", Box::new(BusinessLogicError));
+
         // When: getting category
         let category = error.category();
-        
+
         // Then: should use custom logic
         assert!(!category.is_retriable());
         assert_eq!(category.category_name(), "BusinessLogic");
@@ -287,13 +323,13 @@ pub type TylResult<T> = Result<T, TylError>;
 pub trait ErrorClassifier: std::fmt::Debug + Send + Sync {
     /// Determine if this error category should trigger retries.
     fn is_retriable(&self) -> bool;
-    
+
     /// Calculate the suggested retry delay for this error category.
     fn retry_delay(&self, attempt: usize) -> Duration;
-    
+
     /// Get a human-readable name for this error category.
     fn category_name(&self) -> &'static str;
-    
+
     /// Clone this error classifier (needed for ErrorCategory cloning).
     fn clone_box(&self) -> Box<dyn ErrorClassifier>;
 }
@@ -313,34 +349,34 @@ fn default_classifier() -> Box<dyn ErrorClassifier> {
 pub enum TylError {
     #[error("Database error: {message}")]
     Database { message: String },
-    
+
     #[error("Network error: {message}")]
     Network { message: String },
-    
+
     #[error("Validation error: {field}: {message}")]
     Validation { field: String, message: String },
-    
+
     #[error("Not found: {resource} with id {id}")]
     NotFound { resource: String, id: String },
-    
+
     #[error("Conflict: {message}")]
     Conflict { message: String },
-    
+
     #[error("Internal error: {message}")]
     Internal { message: String },
-    
+
     #[error("Configuration error: {message}")]
     Configuration { message: String },
-    
+
     #[error("Feature not implemented: {feature}")]
     NotImplemented { feature: String },
-    
+
     #[error("Custom error: {message}")]
-    Custom { 
-        message: String, 
+    Custom {
+        message: String,
         #[serde(skip)]
         #[serde(default = "default_classifier")]
-        classifier: Box<dyn ErrorClassifier> 
+        classifier: Box<dyn ErrorClassifier>,
     },
 }
 
@@ -379,7 +415,7 @@ impl ErrorClassifier for BuiltinCategory {
                 | BuiltinCategory::ResourceExhaustion
         )
     }
-    
+
     fn retry_delay(&self, attempt: usize) -> Duration {
         let base_delay = match self {
             BuiltinCategory::Transient => Duration::from_millis(100),
@@ -392,11 +428,11 @@ impl ErrorClassifier for BuiltinCategory {
         let multiplier = 2_u32.pow(attempt.min(10) as u32);
         base_delay * multiplier.min(60)
     }
-    
+
     fn category_name(&self) -> &'static str {
         match self {
             BuiltinCategory::Transient => "Transient",
-            BuiltinCategory::Permanent => "Permanent", 
+            BuiltinCategory::Permanent => "Permanent",
             BuiltinCategory::ResourceExhaustion => "ResourceExhaustion",
             BuiltinCategory::Network => "Network",
             BuiltinCategory::Authentication => "Authentication",
@@ -406,7 +442,7 @@ impl ErrorClassifier for BuiltinCategory {
             BuiltinCategory::Unknown => "Unknown",
         }
     }
-    
+
     fn clone_box(&self) -> Box<dyn ErrorClassifier> {
         Box::new(self.clone())
     }
@@ -414,16 +450,34 @@ impl ErrorClassifier for BuiltinCategory {
 
 // Convenience constructors for built-in categories
 impl ErrorCategory {
-    pub fn transient() -> Self { Self::Builtin(BuiltinCategory::Transient) }
-    pub fn permanent() -> Self { Self::Builtin(BuiltinCategory::Permanent) }
-    pub fn resource_exhaustion() -> Self { Self::Builtin(BuiltinCategory::ResourceExhaustion) }
-    pub fn network() -> Self { Self::Builtin(BuiltinCategory::Network) }
-    pub fn authentication() -> Self { Self::Builtin(BuiltinCategory::Authentication) }
-    pub fn validation() -> Self { Self::Builtin(BuiltinCategory::Validation) }
-    pub fn internal() -> Self { Self::Builtin(BuiltinCategory::Internal) }
-    pub fn service_unavailable() -> Self { Self::Builtin(BuiltinCategory::ServiceUnavailable) }
-    pub fn unknown() -> Self { Self::Builtin(BuiltinCategory::Unknown) }
-    
+    pub fn transient() -> Self {
+        Self::Builtin(BuiltinCategory::Transient)
+    }
+    pub fn permanent() -> Self {
+        Self::Builtin(BuiltinCategory::Permanent)
+    }
+    pub fn resource_exhaustion() -> Self {
+        Self::Builtin(BuiltinCategory::ResourceExhaustion)
+    }
+    pub fn network() -> Self {
+        Self::Builtin(BuiltinCategory::Network)
+    }
+    pub fn authentication() -> Self {
+        Self::Builtin(BuiltinCategory::Authentication)
+    }
+    pub fn validation() -> Self {
+        Self::Builtin(BuiltinCategory::Validation)
+    }
+    pub fn internal() -> Self {
+        Self::Builtin(BuiltinCategory::Internal)
+    }
+    pub fn service_unavailable() -> Self {
+        Self::Builtin(BuiltinCategory::ServiceUnavailable)
+    }
+    pub fn unknown() -> Self {
+        Self::Builtin(BuiltinCategory::Unknown)
+    }
+
     // Delegate methods to the classifier
     pub fn is_retriable(&self) -> bool {
         match self {
@@ -431,14 +485,14 @@ impl ErrorCategory {
             ErrorCategory::Custom(custom) => custom.is_retriable(),
         }
     }
-    
+
     pub fn retry_delay(&self, attempt: usize) -> Duration {
         match self {
             ErrorCategory::Builtin(builtin) => builtin.retry_delay(attempt),
             ErrorCategory::Custom(custom) => custom.retry_delay(attempt),
         }
     }
-    
+
     pub fn category_name(&self) -> &str {
         match self {
             ErrorCategory::Builtin(builtin) => builtin.category_name(),
@@ -466,58 +520,61 @@ impl TylError {
             message: message.into(),
         }
     }
-    
+
     pub fn network<S: Into<String>>(message: S) -> Self {
         Self::Network {
             message: message.into(),
         }
     }
-    
+
     pub fn validation<F: Into<String>, M: Into<String>>(field: F, message: M) -> Self {
         Self::Validation {
             field: field.into(),
             message: message.into(),
         }
     }
-    
+
     pub fn not_found<R: Into<String>, I: Into<String>>(resource: R, id: I) -> Self {
         Self::NotFound {
             resource: resource.into(),
             id: id.into(),
         }
     }
-    
+
     pub fn conflict<S: Into<String>>(message: S) -> Self {
         Self::Conflict {
             message: message.into(),
         }
     }
-    
+
     pub fn internal<S: Into<String>>(message: S) -> Self {
         Self::Internal {
             message: message.into(),
         }
     }
-    
+
     pub fn configuration<S: Into<String>>(message: S) -> Self {
         Self::Configuration {
             message: message.into(),
         }
     }
-    
+
     pub fn not_implemented<S: Into<String>>(feature: S) -> Self {
         Self::NotImplemented {
             feature: feature.into(),
         }
     }
-    
-    pub fn business_logic<S: Into<String>>(message: S, classifier: Box<dyn ErrorClassifier>) -> Self {
+
+    pub fn business_logic<S: Into<String>>(
+        message: S,
+        classifier: Box<dyn ErrorClassifier>,
+    ) -> Self {
         Self::Custom {
             message: message.into(),
             classifier,
         }
     }
-    
+
     pub fn category(&self) -> ErrorCategory {
         match self {
             TylError::Database { .. } => ErrorCategory::transient(),
@@ -531,11 +588,11 @@ impl TylError {
             TylError::Custom { classifier, .. } => ErrorCategory::Custom(classifier.clone()),
         }
     }
-    
+
     pub fn to_context(&self, operation: String) -> ErrorContext {
         ErrorContext::new(operation, self.category(), self.to_string())
     }
-    
+
     // Convenience methods
     pub fn parsing<S: Into<String>>(message: S) -> Self {
         Self::Validation {
@@ -543,19 +600,19 @@ impl TylError {
             message: message.into(),
         }
     }
-    
+
     pub fn serialization<S: Into<String>>(message: S) -> Self {
         Self::Internal {
             message: format!("Serialization error: {}", message.into()),
         }
     }
-    
+
     pub fn connection<S: Into<String>>(message: S) -> Self {
         Self::Network {
             message: format!("Connection error: {}", message.into()),
         }
     }
-    
+
     pub fn initialization<S: Into<String>>(message: S) -> Self {
         Self::Internal {
             message: format!("Initialization error: {}", message.into()),
@@ -572,7 +629,6 @@ impl From<serde_json::Error> for TylError {
     }
 }
 
-
 impl ErrorContext {
     pub fn new(operation: String, category: ErrorCategory, message: String) -> Self {
         Self {
@@ -585,12 +641,12 @@ impl ErrorContext {
             metadata: HashMap::new(),
         }
     }
-    
+
     pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
         self.metadata.insert(key, value);
         self
     }
-    
+
     pub fn increment_attempt(&mut self) {
         self.attempt_count += 1;
     }

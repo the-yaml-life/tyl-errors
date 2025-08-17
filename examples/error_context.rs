@@ -1,5 +1,5 @@
-use tyl_errors::{TylError, ErrorCategory, ErrorContext};
 use serde_json::json;
+use tyl_errors::{ErrorCategory, ErrorContext, TylError};
 
 fn main() {
     println!("TYL Errors - Error Context Example");
@@ -52,7 +52,10 @@ fn context_with_metadata_example() {
     println!("After retry - Attempt count: {}", context.attempt_count);
 
     context.increment_attempt();
-    println!("After another retry - Attempt count: {}", context.attempt_count);
+    println!(
+        "After another retry - Attempt count: {}",
+        context.attempt_count
+    );
 }
 
 fn error_to_context_example() {

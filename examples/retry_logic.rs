@@ -1,5 +1,5 @@
-use tyl_errors::{TylError, TylResult, ErrorCategory};
 use std::time::Duration;
+use tyl_errors::{ErrorCategory, TylError, TylResult};
 
 fn main() {
     println!("TYL Errors - Retry Logic Example");
