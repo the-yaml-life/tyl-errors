@@ -7,12 +7,12 @@ fn main() {
 
     match validate_email("invalid-email") {
         Ok(()) => println!("Email is valid"),
-        Err(e) => println!("Validation error: {}", e),
+        Err(e) => println!("Validation error: {e}"),
     }
 
     match validate_email("user@example.com") {
         Ok(()) => println!("Email is valid"),
-        Err(e) => println!("Validation error: {}", e),
+        Err(e) => println!("Validation error: {e}"),
     }
 
     error_categorization_example();
@@ -22,16 +22,16 @@ fn basic_error_creation() {
     println!("\n=== Basic Error Creation ===");
 
     let db_error = TylError::database("Connection timeout");
-    println!("Database error: {}", db_error);
+    println!("Database error: {db_error}");
 
     let validation_error = TylError::validation("email", "Invalid email format");
-    println!("Validation error: {}", validation_error);
+    println!("Validation error: {validation_error}");
 
     let not_found_error = TylError::not_found("user", "123");
-    println!("Not found error: {}", not_found_error);
+    println!("Not found error: {not_found_error}");
 
     let network_error = TylError::network("Connection refused");
-    println!("Network error: {}", network_error);
+    println!("Network error: {network_error}");
 }
 
 fn validate_email(email: &str) -> TylResult<()> {
