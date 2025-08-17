@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  test_suite:
     name: Test Suite
     runs-on: ubuntu-latest
     strategy:
@@ -81,3 +81,11 @@ jobs:
       run: cargo doc --no-deps --document-private-items
     - name: Test documentation examples
       run: cargo test --doc
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: [test_suite, security_audit, docs]
+    steps:
+    - name: All tests passed
+      run: echo "All CI checks passed successfully"
