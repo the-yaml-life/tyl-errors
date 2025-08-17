@@ -1,0 +1,21 @@
+[package]
+name = "tyl-errors"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository = "https://github.com/the-yaml-life/tyl-errors"
+description = "Shared error types and utilities for TYL (The YAML Life) framework"
+homepage = "https://github.com/the-yaml-life/tyl-errors"
+documentation = "https://docs.rs/tyl-errors"
+readme = "README.md"
+keywords = ["error", "error-handling", "thiserror", "retry", "classification", "hexagonal"]
+categories = ["rust-patterns", "development-tools"]
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+async-trait.workspace = true
