@@ -120,7 +120,6 @@ impl ErrorSettings {
             log_level,
         }
     }
-
 }
 
 impl Default for ErrorSettings {

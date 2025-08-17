@@ -115,8 +115,8 @@ impl RetryPolicy {
             return Duration::from_millis(0);
         }
 
-        let exponential_delay = self.base_delay.as_millis() as f64
-            * self.backoff_multiplier.powi((attempt - 1) as i32);
+        let exponential_delay =
+            self.base_delay.as_millis() as f64 * self.backoff_multiplier.powi((attempt - 1) as i32);
 
         let mut delay = Duration::from_millis(exponential_delay as u64);
 

@@ -3,7 +3,7 @@
 //! This module defines the main TylError enum that represents all error types
 //! in the TYL framework, along with convenient constructor methods.
 
-use crate::category::{ErrorCategory, ErrorClassifier, default_classifier};
+use crate::category::{default_classifier, ErrorCategory, ErrorClassifier};
 use crate::context::ErrorContext;
 use crate::settings::ErrorSettings;
 use serde::{Deserialize, Serialize};
