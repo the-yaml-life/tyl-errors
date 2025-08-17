@@ -354,3 +354,4 @@ mod tests {
         assert_eq!(category.category_name(), "BusinessLogic");
     }
 }
+
