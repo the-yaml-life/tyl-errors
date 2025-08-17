@@ -1,5 +1,5 @@
 use std::time::Duration;
-use tyl_errors::{ErrorCategory, ErrorClassifier, TylError, TylResult};
+use tyl_errors::{ErrorClassifier, TylError, TylResult};
 
 // Custom domain-specific error categories
 #[derive(Debug, Clone)]
@@ -130,7 +130,7 @@ fn process_payment(amount: f64) -> TylResult<String> {
         ));
     }
 
-    Ok(format!("Payment of ${:.2} processed successfully", amount))
+    Ok(format!("Payment of ${amount:.2} processed successfully"))
 }
 
 fn domain_specific_example() {
@@ -140,7 +140,7 @@ fn domain_specific_example() {
 
     for amount in test_amounts {
         match process_payment(amount) {
-            Ok(result) => println!("✓ {}", result),
+            Ok(result) => println!("✓ {result}"),
             Err(error) => {
                 let category = error.category();
                 println!(

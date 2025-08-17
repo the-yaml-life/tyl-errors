@@ -44,7 +44,7 @@ fn context_with_metadata_example() {
     println!("Message: {}", context.message);
     println!("Metadata:");
     for (key, value) in &context.metadata {
-        println!("  {}: {}", key, value);
+        println!("  {key}: {value}");
     }
 
     // Simulate retry
@@ -72,7 +72,7 @@ fn error_to_context_example() {
         let operation = format!("operation_{}", i + 1);
         let context = error.to_context(operation.clone());
 
-        println!("\nOriginal error: {}", error);
+        println!("\nOriginal error: {error}");
         println!("Context operation: {}", context.operation);
         println!("Context category: {}", context.category.category_name());
         println!("Context error_id: {}", context.error_id);

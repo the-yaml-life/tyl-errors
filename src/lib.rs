@@ -13,6 +13,28 @@
 //! - **Rich Context**: Error tracking with UUIDs, timestamps, and metadata
 //! - **Extensible**: Custom error categories without modifying core library
 //! - **Serialization**: Full serde support for all error types
+//! - **Zero Configuration**: Works out of the box with sensible defaults
+//!
+//! ## Environment Variables
+//!
+//! tyl-errors supports optional environment variables for runtime behavior:
+//!
+//! | Variable | Default | Description |
+//! |----------|---------|-------------|
+//! | `TYL_ERROR_BACKTRACE` | `false` | Enable error backtraces (`true`/`false`) |
+//! | `TYL_ERROR_MAX_RETRIES` | `3` | Maximum retry attempts for retriable errors |
+//! | `TYL_ERROR_LOG_ERRORS` | `true` | Log errors to stderr (`true`/`false`) |
+//! | `TYL_ERROR_LOG_LEVEL` | `INFO` | Log level (`ERROR`/`WARN`/`INFO`/`DEBUG`) |
+//! | `RUST_BACKTRACE` | - | Standard Rust backtrace (overrides TYL_ERROR_BACKTRACE) |
+//!
+//! **Example:**
+//! ```bash
+//! export TYL_ERROR_BACKTRACE=true
+//! export TYL_ERROR_MAX_RETRIES=5
+//! export TYL_ERROR_LOG_ERRORS=false
+//! export TYL_ERROR_LOG_LEVEL=DEBUG
+//! cargo run
+//! ```
 //!
 //! ## Quick Start
 //!
@@ -26,11 +48,23 @@
 //!     Ok(())
 //! }
 //!
-//! // Error classification and retry logic
+//! // Error classification and retry logic with environment configuration
 //! let error = TylError::network("Connection timeout");
-//! if error.category().is_retriable() {
-//!     let delay = error.category().retry_delay(1);
-//!     // Retry after delay...
+//!
+//! for attempt in 0..TylError::max_retries() {
+//!     if error.should_retry(attempt) {
+//!         let delay = error.category().retry_delay(attempt + 1);
+//!         // Sleep for delay duration, then retry...
+//!         break;
+//!     }
+//! }
+//!
+//! // Conditional logging based on environment configuration
+//! error.log_if_enabled(tyl_errors::LogLevel::Error);
+//!
+//! // Manual logging check
+//! if TylError::log_errors_enabled() && TylError::log_level() >= tyl_errors::LogLevel::Info {
+//!     eprintln!("Error occurred: {}", error);
 //! }
 //! ```
 //!
@@ -313,6 +347,73 @@ use std::collections::HashMap;
 use std::time::Duration;
 use thiserror::Error;
 use uuid::Uuid;
+
+/// Log level for error output
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LogLevel {
+    Error = 0,
+    Warn = 1,
+    Info = 2,
+    Debug = 3,
+}
+
+impl LogLevel {
+    fn from_env() -> Option<Self> {
+        std::env::var("TYL_ERROR_LOG_LEVEL").ok().and_then(|level| {
+            match level.to_uppercase().as_str() {
+                "ERROR" => Some(LogLevel::Error),
+                "WARN" | "WARNING" => Some(LogLevel::Warn),
+                "INFO" => Some(LogLevel::Info),
+                "DEBUG" => Some(LogLevel::Debug),
+                _ => None,
+            }
+        })
+    }
+}
+
+/// Global error configuration from environment variables
+/// Zero-config with sensible defaults to avoid circular dependencies
+struct ErrorSettings {
+    backtrace_enabled: bool,
+    max_retries: usize,
+    log_errors: bool,
+    log_level: LogLevel,
+}
+
+impl ErrorSettings {
+    /// Get global error settings from environment variables
+    fn global() -> &'static Self {
+        use std::sync::OnceLock;
+        static SETTINGS: OnceLock<ErrorSettings> = OnceLock::new();
+
+        SETTINGS.get_or_init(|| {
+            let backtrace_enabled = std::env::var("TYL_ERROR_BACKTRACE")
+                .map(|v| v.to_lowercase() == "true")
+                .unwrap_or_else(|_| {
+                    // Fall back to RUST_BACKTRACE if TYL_ERROR_BACKTRACE not set
+                    std::env::var("RUST_BACKTRACE").is_ok()
+                });
+
+            let max_retries = std::env::var("TYL_ERROR_MAX_RETRIES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3);
+
+            let log_errors = std::env::var("TYL_ERROR_LOG_ERRORS")
+                .map(|v| v.to_lowercase() != "false")
+                .unwrap_or(true);
+
+            let log_level = LogLevel::from_env().unwrap_or(LogLevel::Info);
+
+            ErrorSettings {
+                backtrace_enabled,
+                max_retries,
+                log_errors,
+                log_level,
+            }
+        })
+    }
+}
 
 pub type TylResult<T> = Result<T, TylError>;
 
@@ -602,20 +703,66 @@ impl TylError {
     }
 
     pub fn serialization<S: Into<String>>(message: S) -> Self {
+        let msg = message.into();
         Self::Internal {
-            message: format!("Serialization error: {}", message.into()),
+            message: format!("Serialization error: {msg}"),
         }
     }
 
     pub fn connection<S: Into<String>>(message: S) -> Self {
+        let msg = message.into();
         Self::Network {
-            message: format!("Connection error: {}", message.into()),
+            message: format!("Connection error: {msg}"),
         }
     }
 
     pub fn initialization<S: Into<String>>(message: S) -> Self {
+        let msg = message.into();
         Self::Internal {
-            message: format!("Initialization error: {}", message.into()),
+            message: format!("Initialization error: {msg}"),
+        }
+    }
+
+    /// Check if backtraces are enabled via environment variables
+    ///
+    /// Checks TYL_ERROR_BACKTRACE first, falls back to RUST_BACKTRACE
+    pub fn backtrace_enabled() -> bool {
+        ErrorSettings::global().backtrace_enabled
+    }
+
+    /// Get maximum retry attempts from TYL_ERROR_MAX_RETRIES (default: 3)
+    pub fn max_retries() -> usize {
+        ErrorSettings::global().max_retries
+    }
+
+    /// Check if error logging is enabled via TYL_ERROR_LOG_ERRORS (default: true)
+    pub fn log_errors_enabled() -> bool {
+        ErrorSettings::global().log_errors
+    }
+
+    /// Get current log level from TYL_ERROR_LOG_LEVEL (default: INFO)
+    pub fn log_level() -> LogLevel {
+        ErrorSettings::global().log_level
+    }
+
+    /// Check if this error should be retried based on attempt count and max retries
+    pub fn should_retry(&self, attempt: usize) -> bool {
+        self.category().is_retriable() && attempt < Self::max_retries()
+    }
+
+    /// Log error if logging is enabled and meets log level criteria
+    pub fn log_if_enabled(&self, level: LogLevel) {
+        if Self::log_errors_enabled() && level <= Self::log_level() {
+            eprintln!(
+                "[{}] {}",
+                match level {
+                    LogLevel::Error => "ERROR",
+                    LogLevel::Warn => "WARN",
+                    LogLevel::Info => "INFO",
+                    LogLevel::Debug => "DEBUG",
+                },
+                self
+            );
         }
     }
 }
@@ -624,7 +771,7 @@ impl TylError {
 impl From<serde_json::Error> for TylError {
     fn from(err: serde_json::Error) -> Self {
         Self::Internal {
-            message: format!("JSON serialization error: {}", err),
+            message: format!("JSON serialization error: {err}"),
         }
     }
 }
